@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome – CyberQuest</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{overflow:hidden;font-family:'Segoe UI',sans-serif;background:#0a1a0a;}
+
+  canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
+
+  .ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10;
+      display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+      padding-bottom:80px;pointer-events:none;}
+
+  .speech-bubble{
+    background:transparent;
+    border-radius:0;
+    padding:0;
+    font-size:1.25rem;
+    font-weight:600;
+    color:#1a4a1a;
+    position:relative;
+    margin-bottom:28px;
+    box-shadow:none;
+    opacity:0;
+    transform:translateY(20px);
+    transition:opacity 0.8s ease,transform 0.8s ease;
+    pointer-events:none;
+    letter-spacing:0.02em;
+  }
+  
+
+  .enter-btn{
+    pointer-events:all;
+    padding:18px 56px;
+    font-size:1.1rem;
+    font-weight:700;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    color:#fff;
+    border:none;
+    border-radius:50px;
+    cursor:pointer;
+    opacity:0;
+    transform:scale(0.85);
+    transition:opacity 0.7s ease,transform 0.7s ease,box-shadow 0.3s;
+    box-shadow:0 4px 24px rgba(34,197,94,0.4);
+    text-decoration:none;
+    display:inline-block;
+    text-align:center;
+  }
+  .enter-btn.show{opacity:1;transform:scale(1);}
+  .enter-btn:hover{
+    background:linear-gradient(135deg,#16a34a,#15803d);
+    box-shadow:0 8px 36px rgba(34,197,94,0.6);
+    transform:scale(1.05) !important;
+  }
+  .enter-btn:active{transform:scale(0.97) !important;}
+
+  .logo{
+    position:fixed;top:32px;left:50%;transform:translateX(-50%);
+    z-index:20;text-align:center;
+    opacity:0;transition:opacity 1.2s ease 0.5s;
+  }
+  .logo.show{opacity:1;}
+  .logo-shield{font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));}
+  .logo-text{color:#e2f5e2;font-size:1.5rem;font-weight:700;letter-spacing:0.15em;
+    text-shadow:0 2px 12px rgba(0,0,0,0.5);}
+  .logo-sub{color:#86efac;font-size:0.8rem;letter-spacing:0.3em;margin-top:2px;
+    text-shadow:0 1px 6px rgba(0,0,0,0.4);}
+
+  .fireflies{position:fixed;top:0;left:0;width:100%;height:100%;z-index:5;pointer-events:none;}
+  .firefly{position:absolute;width:4px;height:4px;border-radius:50%;
+    background:radial-gradient(circle,#fde68a,#fbbf24);
+    animation:float var(--dur) ease-in-out infinite var(--delay);}
+  @keyframes float{
+    0%{opacity:0;transform:translate(0,0);}
+    20%{opacity:1;}
+    80%{opacity:0.6;}
+    100%{opacity:0;transform:translate(var(--tx),var(--ty));}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="fireflies" id="fireflies"></div>
+
+<div class="logo" id="logo">
+  <div class="logo-shield">🛡️</div>
+  <div class="logo-text">CYBERQUEST</div>
+  <div class="logo-sub">EMBARK ON YOUR CYBER ADVENTURE</div>
+</div>
+
+<div class="ui">
+  <div class="speech-bubble" id="bubble"><span id="typed"></span><span class="typing-cursor" id="cursor"></span></div>
+  <a href="index.php" class="enter-btn" id="btn">🚀 Begin Your Quest</a>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, t = 0;
+
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Sky gradient colours (twilight-to-night)
+function drawSky(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#050d1a');
+  g.addColorStop(0.4,'#0a1f0a');
+  g.addColorStop(0.7,'#0f2d0f');
+  g.addColorStop(1,'#0a1a0a');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+
+// ── Stars
+const stars=[];
+for(let i=0;i<180;i++) stars.push({x:Math.random(),y:Math.random()*0.55,r:Math.random()*1.2+0.3,ph:Math.random()*Math.PI*2});
+function drawStars(){
+  stars.forEach(s=>{
+    const flicker=0.6+0.4*Math.sin(t*0.8+s.ph);
+    ctx.globalAlpha=flicker*0.85;
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+
+// ── Moon
+function drawMoon(){
+  const mx=W*0.82,my=H*0.12;
+  ctx.save();
+  const gl=ctx.createRadialGradient(mx,my,2,mx,my,38);
+  gl.addColorStop(0,'#fefce8'); gl.addColorStop(0.7,'#fef9c3'); gl.addColorStop(1,'rgba(254,252,232,0)');
+  ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(mx,my,38,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fefce8'; ctx.beginPath(); ctx.arc(mx,my,28,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ── Hills
+function drawHills(){
+  // Far hill
+  ctx.save();
+  const g1=ctx.createLinearGradient(0,H*0.5,0,H);
+  g1.addColorStop(0,'#0d3314'); g1.addColorStop(1,'#071a07');
+  ctx.fillStyle=g1;
+  ctx.beginPath(); ctx.moveTo(0,H);
+  ctx.bezierCurveTo(W*0.1,H*0.55, W*0.3,H*0.48, W*0.5,H*0.52);
+  ctx.bezierCurveTo(W*0.7,H*0.56, W*0.85,H*0.5, W,H*0.53);
+  ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // Near hill
+  ctx.save();
+  const g2=ctx.createLinearGradient(0,H*0.6,0,H);
+  g2.addColorStop(0,'#0a2a0a'); g2.addColorStop(1,'#050f05');
+  ctx.fillStyle=g2;
+  ctx.beginPath(); ctx.moveTo(0,H);
+  ctx.bezierCurveTo(W*0.15,H*0.68, W*0.35,H*0.6, W*0.55,H*0.65);
+  ctx.bezierCurveTo(W*0.72,H*0.7, W*0.88,H*0.62, W,H*0.65);
+  ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ── Water / pond reflection
+function drawPond(){
+  ctx.save();
+  const py=H*0.82, ph=H*0.07, pw=W*0.28, px=W*0.36;
+  const eg=ctx.createRadialGradient(px+pw/2,py,0,px+pw/2,py+ph,ph*2);
+  eg.addColorStop(0,'rgba(14,60,80,0.85)');
+  eg.addColorStop(0.6,'rgba(8,40,55,0.6)');
+  eg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=eg;
+  ctx.beginPath(); ctx.ellipse(px+pw/2,py+ph/2,pw,ph,0,0,Math.PI*2); ctx.fill();
+  // ripple
+  const ri=Math.sin(t*1.2)*2;
+  ctx.strokeStyle='rgba(180,220,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.ellipse(px+pw/2,py+ph/2,pw*0.6+ri,ph*0.45+ri*0.2,0,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+
+// ── Ground
+function drawGround(){
+  ctx.save();
+  const g=ctx.createLinearGradient(0,H*0.78,0,H);
+  g.addColorStop(0,'#0d2e0d');
+  g.addColorStop(0.4,'#081808');
+  g.addColorStop(1,'#050f05');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,H*0.78,W,H*0.22);
+  ctx.restore();
+}
+
+// ── Grass tufts
+function drawGrass(){
+  ctx.save();
+  for(let i=0;i<W/8;i++){
+    const gx=i*8+Math.sin(i*2.3)*3;
+    const gy=H*0.78+Math.sin(i*1.7)*4;
+    const sw=t*0.6+i*0.4;
+    const bend=Math.sin(sw)*4;
+    ctx.strokeStyle=`rgba(${22+Math.random()*10},${80+Math.random()*30},${22},${0.4+Math.random()*0.3})`;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(gx,gy+8);
+    ctx.quadraticCurveTo(gx+bend,gy-4,gx+bend*1.5,gy-10);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ── Tree drawing
+function drawTree(x, y, height, thick, windPhase, isMain){
+  ctx.save();
+  ctx.translate(x, y);
+
+  // trunk
+  const trunkSway = Math.sin(t * 0.5 + windPhase) * (height * 0.012);
+  ctx.save();
+  ctx.rotate(trunkSway * 0.05);
+  const tg = ctx.createLinearGradient(0,0,thick,0);
+  tg.addColorStop(0,'#1a0e08'); tg.addColorStop(0.5,'#2d1a0e'); tg.addColorStop(1,'#1a0e08');
+  ctx.fillStyle = tg;
+  ctx.beginPath();
+  ctx.moveTo(-thick/2, 0);
+  ctx.bezierCurveTo(-thick/2 + trunkSway*0.5, -height*0.33, -thick/3 + trunkSway*0.8, -height*0.66, trunkSway, -height);
+  ctx.bezierCurveTo(thick/3 + trunkSway*0.8, -height*0.66, thick/2 + trunkSway*0.5, -height*0.33, thick/2, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // foliage layers
+  const layers = isMain ? 5 : 3;
+  for(let l=0; l<layers; l++){
+    const ly = -height*(0.45 + l*0.12);
+    const lx = Math.sin(t*0.4 + windPhase + l*0.8) * (height*0.02) * (l+1);
+    const lr = height*(0.38 - l*0.045) * (isMain ? 1 : 0.85);
+    const leafSwayX = Math.sin(t*0.6 + windPhase + l) * lr * 0.08;
+    const leafSwayY = Math.cos(t*0.4 + windPhase + l) * lr * 0.03;
+
+    // shadow layer
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(lx+leafSwayX+3, ly+leafSwayY+5, lr*0.95, lr*0.6, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // main foliage
+    const fc = ctx.createRadialGradient(lx+leafSwayX,ly+leafSwayY,lr*0.1,lx+leafSwayX,ly+leafSwayY,lr);
+    const bright = 0.85 + 0.15*Math.sin(t*0.3+windPhase+l);
+    const gr = Math.floor(90*bright + l*8), gg = Math.floor(140*bright + l*12);
+    fc.addColorStop(0, `rgb(${gr},${gg},${gr-20})`);
+    fc.addColorStop(0.6, `rgb(${gr-15},${gg-20},${gr-35})`);
+    fc.addColorStop(1, `rgb(${Math.max(8,gr-40)},${Math.max(20,gg-60)},${Math.max(5,gr-55)})`);
+    ctx.fillStyle = fc;
+    ctx.beginPath();
+    ctx.ellipse(lx+leafSwayX, ly+leafSwayY, lr, lr*0.68, Math.sin(t*0.2+l)*0.08, 0, Math.PI*2);
+    ctx.fill();
+
+    // leaf highlights
+    if(isMain){
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#d4f7a0';
+      ctx.beginPath();
+      ctx.ellipse(lx+leafSwayX - lr*0.25, ly+leafSwayY - lr*0.2, lr*0.3, lr*0.18, -0.5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // falling leaves
+  if(isMain){
+    const leafTime = (t * 0.4 + windPhase) % (Math.PI*2);
+    for(let li=0; li<3; li++){
+      const lt = (t * 0.25 + windPhase + li * 2.1) % 8;
+      const lpx = Math.sin(lt * 1.2 + li) * 60;
+      const lpy = -(height*0.7) + lt * 28;
+      if(lpy < 20){
+        ctx.save();
+        ctx.translate(lpx, lpy);
+        ctx.rotate(lt * 1.5);
+        ctx.fillStyle = li===0?'#5a9e30':li===1?'#3d7a20':'#7abf45';
+        ctx.globalAlpha = Math.max(0, 1 - lt/8);
+        ctx.beginPath();
+        ctx.ellipse(0,0,5,3,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// ── Trees layout
+const treeData = [
+  {rx:0.04, ry:0.82, h:0.38, th:14, wp:0.0, main:false},
+  {rx:0.10, ry:0.80, h:0.42, th:18, wp:0.8, main:false},
+  {rx:0.17, ry:0.79, h:0.46, th:20, wp:1.5, main:true },
+  {rx:0.27, ry:0.82, h:0.36, th:13, wp:2.3, main:false},
+  {rx:0.68, ry:0.82, h:0.36, th:13, wp:3.1, main:false},
+  {rx:0.76, ry:0.79, h:0.44, th:19, wp:3.9, main:true },
+  {rx:0.84, ry:0.80, h:0.40, th:16, wp:4.6, main:false},
+  {rx:0.91, ry:0.82, h:0.34, th:12, wp:5.2, main:false},
+  {rx:0.97, ry:0.83, h:0.30, th:11, wp:5.8, main:false},
+];
+
+function drawTrees(){
+  treeData.forEach(tr=>{
+    drawTree(tr.rx*W, tr.ry*H, tr.h*H, tr.th, tr.wp, tr.main);
+  });
+}
+
+// ── Mist
+function drawMist(){
+  ctx.save();
+  for(let m=0;m<4;m++){
+    const mx = W*(0.1+m*0.25) + Math.sin(t*0.15+m)*W*0.04;
+    const my = H*(0.7+m*0.04);
+    const mr = W*(0.18+m*0.04);
+    const mg = ctx.createRadialGradient(mx,my,0,mx,my,mr);
+    mg.addColorStop(0,'rgba(180,220,200,0.06)');
+    mg.addColorStop(1,'rgba(180,220,200,0)');
+    ctx.fillStyle=mg;
+    ctx.beginPath(); ctx.ellipse(mx,my,mr,mr*0.25,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── Parrot
+const parrot = {
+  x: -120, y: 0,
+  tx: 0, ty: 0,
+  phase: 'flying',
+  arrived: false,
+  wingAngle: 0,
+  perchX: 0, perchY: 0,
+  tailWag: 0,
+};
+
+function initParrot(){
+  // Perch on left main tree's top branch
+  const tree = treeData[2];
+  parrot.perchX = tree.rx * W + 30;
+  parrot.perchY = tree.ry * H - tree.h * H * 0.78;
+  parrot.x = W + 120;
+  parrot.y = H * 0.25;
+  parrot.tx = parrot.perchX;
+  parrot.ty = parrot.perchY;
+}
+
+let parrotStartTime = null;
+const PARROT_ARRIVE_DELAY = 2500;
+
+function updateParrot(timestamp){
+  if(!parrotStartTime){ parrotStartTime = timestamp; return; }
+  const elapsed = timestamp - parrotStartTime;
+  if(elapsed < PARROT_ARRIVE_DELAY) return;
+
+  parrot.wingAngle = Math.sin(t * 8) * 0.6;
+  parrot.tailWag = Math.sin(t * 2) * 0.08;
+
+  if(!parrot.arrived){
+    const dx = parrot.tx - parrot.x;
+    const dy = parrot.ty - parrot.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if(dist < 6){
+      parrot.x = parrot.tx;
+      parrot.y = parrot.ty;
+      parrot.arrived = true;
+      showSpeech();
+    } else {
+      const speed = Math.min(4.5, dist*0.04);
+      parrot.x += (dx/dist)*speed;
+      parrot.y += (dy/dist)*speed + Math.sin(t*6)*0.8;
+    }
+  } else {
+    parrot.y = parrot.ty + Math.sin(t * 1.5) * 2.5;
+    parrot.tailWag = Math.sin(t * 1.8) * 0.12;
+    parrot.wingAngle = Math.sin(t * 1.2) * 0.12;
+  }
+}
+
+function drawParrot(){
+  const px = parrot.x, py = parrot.y;
+  ctx.save();
+  ctx.translate(px, py);
+  if(!parrot.arrived) ctx.scale(-1,1); // face left when flying in from right
+
+  // tail
+  ctx.save();
+  ctx.rotate(parrot.tailWag);
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath(); ctx.moveTo(-4,6); ctx.lineTo(-16,28); ctx.lineTo(0,20); ctx.lineTo(14,28); ctx.lineTo(4,6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#b45309';
+  ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(-8,28); ctx.lineTo(0,22); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // body
+  const bg = ctx.createRadialGradient(-2,-2,2,-2,-2,16);
+  bg.addColorStop(0,'#22c55e'); bg.addColorStop(0.6,'#16a34a'); bg.addColorStop(1,'#14532d');
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0,0,13,17,0,0,Math.PI*2); ctx.fill();
+
+  // wings
+  ctx.save(); ctx.rotate(-parrot.wingAngle - 0.15);
+  ctx.fillStyle = '#15803d';
+  ctx.beginPath(); ctx.ellipse(-12,2,10,5,0.7,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#166534';
+  ctx.beginPath(); ctx.ellipse(-14,1,8,3,0.9,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.rotate(parrot.wingAngle + 0.15);
+  ctx.fillStyle = '#15803d';
+  ctx.beginPath(); ctx.ellipse(12,2,10,5,-0.7,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // head
+  const hg = ctx.createRadialGradient(1,-14,1,1,-14,10);
+  hg.addColorStop(0,'#4ade80'); hg.addColorStop(1,'#16a34a');
+  ctx.fillStyle = hg;
+  ctx.beginPath(); ctx.arc(1,-14,10,0,Math.PI*2); ctx.fill();
+
+  // eye
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(5,-15,3.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#1c1c1c';
+  ctx.beginPath(); ctx.arc(6,-15,2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(6.5,-15.5,0.7,0,Math.PI*2); ctx.fill();
+
+  // beak
+  ctx.fillStyle='#fbbf24';
+  ctx.beginPath(); ctx.moveTo(9,-14); ctx.lineTo(18,-12); ctx.lineTo(9,-10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#d97706';
+  ctx.beginPath(); ctx.moveTo(9,-12); ctx.lineTo(18,-12); ctx.lineTo(9,-10); ctx.closePath(); ctx.fill();
+
+  // red cheek
+  ctx.globalAlpha=0.7;
+  ctx.fillStyle='#ef4444';
+  ctx.beginPath(); ctx.ellipse(4,-11,4,2.5,0.3,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha=1;
+
+  // feet (when perched)
+  if(parrot.arrived){
+    ctx.strokeStyle='#92400e'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(-4,16); ctx.lineTo(-6,24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6,24); ctx.lineTo(-10,26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6,24); ctx.lineTo(-4,27); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3,16); ctx.lineTo(4,24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4,24); ctx.lineTo(8,26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4,24); ctx.lineTo(2,27); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ── Speech typing
+const messages = ['Welcome to CyberQuest! 🛡️', 'Your cybersecurity adventure awaits!'];
+let msgIdx = 0, charIdx = 0, typingDone = false, pauseTimer = 0;
+const bubble = document.getElementById('bubble');
+const typedEl = document.getElementById('typed');
+const cursor = document.getElementById('cursor');
+let speechActive = false;
+
+function showSpeech(){
+  bubble.classList.add('show');
+  speechActive = true;
+  setTimeout(()=>{
+    document.getElementById('btn').classList.add('show');
+    document.getElementById('logo').classList.add('show');
+  }, 1800);
+}
+
+function typeStep(){
+  if(!speechActive) return;
+  const msg = messages[msgIdx];
+  if(charIdx < msg.length){
+    typedEl.textContent = msg.slice(0, ++charIdx);
+  } else {
+    if(pauseTimer++ > 40){
+      pauseTimer=0; charIdx=0; msgIdx=(msgIdx+1)%messages.length;
+      typedEl.textContent='';
+    }
+  }
+}
+
+// ── Fireflies
+function spawnFireflies(){
+  const ff = document.getElementById('fireflies');
+  for(let i=0;i<22;i++){
+    const d = document.createElement('div');
+    d.className='firefly';
+    const dur=(6+Math.random()*8).toFixed(1)+'s';
+    const delay=(-Math.random()*8).toFixed(1)+'s';
+    const tx=(Math.random()*120-60).toFixed(0)+'px';
+    const ty=(Math.random()*-80-20).toFixed(0)+'px';
+    d.style.cssText=`left:${Math.random()*100}%;top:${30+Math.random()*50}%;--dur:${dur};--delay:${delay};--tx:${tx};--ty:${ty}`;
+    ff.appendChild(d);
+  }
+}
+spawnFireflies();
+
+// ── Main loop
+let lastTS = null, typeTimer = 0;
+function loop(timestamp){
+  if(!lastTS) lastTS = timestamp;
+  t += (timestamp - lastTS) * 0.001;
+  lastTS = timestamp;
+
+  typeTimer += timestamp - (lastTS - (timestamp - lastTS));
+  if(typeTimer > 60){ typeStep(); typeTimer=0; }
+
+  ctx.clearRect(0,0,W,H);
+  drawSky();
+  drawStars();
+  drawMoon();
+  drawHills();
+  drawPond();
+  drawGround();
+  drawTrees();
+  drawGrass();
+  drawMist();
+  updateParrot(timestamp);
+  drawParrot();
+
+  requestAnimationFrame(loop);
+}
+
+initParrot();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
